@@ -56,3 +56,7 @@ dkms.conf
 
 
 stlcc
+*.elf
+*.hex
+
+ATmega328P-Bare-Metal-Task-Switching
