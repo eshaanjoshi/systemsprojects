@@ -4,12 +4,18 @@
 #include <avr/io.h>
 #include <stdint.h>
 
-#define STACK_SIZE 128
+#define STACK_SIZE 256
+#define MAX_TASKS 8
+#define portFLAGS_INT_ENABLED ( 0x80 )
 
 typedef struct {
     uint8_t *pxTopOfStack;
 } TCB_t;
 
+extern TCB_t *task_list[];
+extern uint8_t free_list[];
+extern uint8_t task_count;
+extern uint8_t current_index;
 extern TCB_t *pxCurrentTCB;
 
 #define portSAVE_CONTEXT()                              \
@@ -103,5 +109,9 @@ extern TCB_t *pxCurrentTCB;
     );
 
 void task_create(TCB_t *tcb, uint8_t *stack, void (*task_func)(void));
+void task_init();
 
+void vTaskSwitchContext(void);
+void prvSetupTimerInterrupt(void);
+uint8_t *pxPortInitialiseStack(uint8_t *pxTopOfStack, void (*pxCode)(void));
 #endif
