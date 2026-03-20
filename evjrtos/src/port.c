@@ -1,30 +1,13 @@
 #include "port.h"
-#include "uart.h"
 #include <avr/interrupt.h>
-TCB_t *task_list[MAX_TASKS];
-uint8_t task_count = 0;
-uint8_t free_list[MAX_TASKS];
-uint8_t current_index = 0;
-TCB_t *pxCurrentTCB;
+#include "scheduler.h"
+#include "uart.h"
 
 //void TIMER1_COMPA_vect(void) __attribute__((signal, naked));
-void vPortYieldFromTick(void) __attribute__ ((naked));
 
 
-void task_init(void) {
-    for(int i = 0; i < MAX_TASKS; i++){
-        free_list[i] = 0;
-    }
-}
 
-int _get_free_task(void){
-    for(int i = 0; i < MAX_TASKS; i++){
-        if (free_list[i] == 0){
-            return i;
-        }
-    }
-    return -1;
-}
+
 
 uint8_t *pxPortInitialiseStack(uint8_t *pxTopOfStack, void (*pxCode)(void)) {
     uint16_t usAddress = (uint16_t)pxCode;
@@ -107,36 +90,16 @@ uint8_t *pxPortInitialiseStack(uint8_t *pxTopOfStack, void (*pxCode)(void)) {
     return pxTopOfStack;
 }
 
-void task_create(TCB_t *tcb, uint8_t *stack, void (*task_func)(void)) {
-    uint8_t *sp = stack + STACK_SIZE - 1;
-    uint16_t addr = (uint16_t)task_func;
-    int i = _get_free_task();
-    if (i<0) return;//TODO make halt
-    task_list[i] = tcb;
-    free_list[i] = 1;
-    task_count++;
 
-    uint8_t *top = stack+STACK_SIZE-1;
-    tcb->pxTopOfStack = pxPortInitialiseStack(top, task_func);
-}
 
 void prvSetupTimerInterrupt(void){
     TCCR1A = 0;
     TCCR1B = (1 << WGM12) | (1 << CS11) | (1 << CS10);
-    OCR1A  = 2499; 
+    OCR1A  = 15624; 
     TIMSK1 = (1 << OCIE1A);  
 }
 
-void vTaskSwitchContext(void){
-     while(1){
-        current_index = (current_index+1) % MAX_TASKS;
-        
-        if (free_list[current_index] != 0) {
-            break;
-        }
-    }
-    pxCurrentTCB = task_list[current_index];
-}
+
 
 ISR(TIMER1_COMPA_vect, ISR_NAKED){
     vPortYieldFromTick();
@@ -146,7 +109,10 @@ ISR(TIMER1_COMPA_vect, ISR_NAKED){
 void vPortYieldFromTick(void){
     portSAVE_CONTEXT();
     //vTaskIncrementTick();
-    vTaskSwitchContext();
+    tick_counter++;
+    //uart_print_hex(tick_counter);
+    unblock_if_finished();
+    task_switch_context();
     portRESTORE_CONTEXT();
     asm volatile("ret");
 }

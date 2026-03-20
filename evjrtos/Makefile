@@ -24,7 +24,7 @@ build:
 	mkdir -p build
 
 flash:
-	avrdude -c arduino -b $(BAUD) -p $(MCU) -P $(BASE_CHIP) -U flash:w:build/main.hex:i
+	avrdude -c arduino -b $(BAUD) -p $(MCU) -P $(BASE_CHIP2) -U flash:w:build/main.hex:i
 
 unoflash:
 	avrdude -c arduino -b $(BAUD) -p $(MCU) -P $(UNO) -U flash:w:build/main.hex:i

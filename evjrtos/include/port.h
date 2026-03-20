@@ -8,14 +8,19 @@
 #define MAX_TASKS 8
 #define portFLAGS_INT_ENABLED ( 0x80 )
 
+typedef enum{
+    READY,
+    BLOCKED
+} State_t;
+
 typedef struct {
     uint8_t *pxTopOfStack;
+    State_t state;
+    uint32_t wake_time;
 } TCB_t;
 
-extern TCB_t *task_list[];
-extern uint8_t free_list[];
-extern uint8_t task_count;
-extern uint8_t current_index;
+void vPortYieldFromTick(void) __attribute__ ((naked));
+
 extern TCB_t *pxCurrentTCB;
 
 #define portSAVE_CONTEXT()                              \
@@ -68,10 +73,10 @@ extern TCB_t *pxCurrentTCB;
     asm volatile (                                      \
         "lds r26, pxCurrentTCB      \n\t"               \
         "lds r27, pxCurrentTCB + 1  \n\t"               \
-        "ld r28, x+                 \n\t"               \
-        "out __SP_L__, r28          \n\t"               \
-        "ld r29, x+                 \n\t"               \
-        "out __SP_H__, r29          \n\t"               \
+        "ld r28, x+                 \n\t"   \
+        "ld r29, x+                 \n\t"   \
+        "out __SP_H__, r29          \n\t"   \
+        "out __SP_L__, r28          \n\t"   \
         "pop r31                    \n\t"               \
         "pop r30                    \n\t"               \
         "pop r29                    \n\t"               \
@@ -108,10 +113,7 @@ extern TCB_t *pxCurrentTCB;
         "pop r0                     \n\t"               \
     );
 
-void task_create(TCB_t *tcb, uint8_t *stack, void (*task_func)(void));
-void task_init();
 
-void vTaskSwitchContext(void);
 void prvSetupTimerInterrupt(void);
 uint8_t *pxPortInitialiseStack(uint8_t *pxTopOfStack, void (*pxCode)(void));
 #endif
