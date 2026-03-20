@@ -3,11 +3,11 @@
 #include "uart.h"
 
 
-TCB_t *task_list[MAX_TASKS];
+volatile TCB_t *task_list[MAX_TASKS];
 uint8_t task_count = 0;
-uint8_t free_list[MAX_TASKS];
-uint8_t current_index = 0;
-TCB_t *pxCurrentTCB;
+volatile uint8_t free_list[MAX_TASKS];
+volatile uint8_t current_index = 0;
+volatile TCB_t *pxCurrentTCB;
 
 volatile uint32_t tick_counter=0;
 
@@ -15,7 +15,7 @@ volatile uint32_t tick_counter=0;
 void task_delay(uint32_t ticks){
     pxCurrentTCB->state = BLOCKED;
     pxCurrentTCB->wake_time = tick_counter+ticks;
-    //vPortYieldFromTick();
+    vPortYieldFromTick();
 }
 void idle_task(void){
     while(1);
@@ -28,6 +28,7 @@ void task_init(void) {
     for(int i = 0; i < MAX_TASKS; i++){
         free_list[i] = 0;
     }
+
     task_create(&idle_tcb, idle_stack, idle_task);
 }
 
@@ -66,16 +67,11 @@ void task_create(TCB_t *tcb, uint8_t *stack, void (*task_func)(void)) {
 
 
 void task_switch_context(void){
-    uint8_t checked = 0;
      while(1){
         current_index = (current_index+1) % MAX_TASKS;
         
         if (free_list[current_index] != 0 && task_list[current_index]->state==READY) {
             break;
-        }
-        checked++;
-        if(checked >= MAX_TASKS){
-            return;
         }
     }
     pxCurrentTCB = task_list[current_index];

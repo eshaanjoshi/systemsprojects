@@ -2,7 +2,6 @@
 #include "uart.h"
 #include "port.h"
 #include "scheduler.h"
-#include "scheduler.h"
 #include <avr/interrupt.h>
 #include <util/delay.h>
 
@@ -25,9 +24,9 @@ void task0(void) {
 void task1(void) {
     while (1) {
         PORTB |= (1<<PB1);
-        task_delay(8);
+        task_delay(4);
         PORTB &= ~(1<<PB1);
-        task_delay(8);
+        task_delay(4);
     }
 }
 

@@ -4,11 +4,11 @@
 #include "port.h"
 #include <stdint.h>
 
-extern TCB_t *pxCurrentTCB;
-extern TCB_t *task_list[MAX_TASKS];
+volatile extern TCB_t *pxCurrentTCB;
+volatile extern TCB_t *task_list[MAX_TASKS];
 extern uint8_t task_count;
-extern uint8_t free_list[MAX_TASKS];
-extern uint8_t current_index;
+volatile extern uint8_t free_list[MAX_TASKS];
+volatile extern uint8_t current_index;
 
 
 void task_init(void);

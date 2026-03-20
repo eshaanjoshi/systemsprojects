@@ -21,7 +21,7 @@ typedef struct {
 
 void vPortYieldFromTick(void) __attribute__ ((naked));
 
-extern TCB_t *pxCurrentTCB;
+volatile extern TCB_t *pxCurrentTCB;
 
 #define portSAVE_CONTEXT()                              \
     asm volatile (                                      \
