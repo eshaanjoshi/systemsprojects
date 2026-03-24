@@ -116,3 +116,10 @@ void vPortYieldFromTick(void){
     portRESTORE_CONTEXT();
     asm volatile("ret");
 }
+
+void vPortYield(void){
+    portSAVE_CONTEXT();
+    task_switch_context();
+    portRESTORE_CONTEXT();
+    asm volatile("ret");
+}

@@ -1,7 +1,8 @@
 #include "scheduler.h"
 #include "port.h"
 #include "uart.h"
-
+#include <avr/interrupt.h>
+#define NULL 0x0
 
 volatile TCB_t *task_list[MAX_TASKS];
 uint8_t task_count = 0;
@@ -11,11 +12,43 @@ volatile TCB_t *pxCurrentTCB;
 
 volatile uint32_t tick_counter=0;
 
+TCB_t *top_priority;
+
+TCB_t **get_top_priority(){
+    return &top_priority;
+}
+
+TCB_t *blocked_list;
+void assert_no_cycle(TCB_t *list, const char *name){
+    //uart_print_str(name);
+    TCB_t *slow = list;
+    TCB_t *fast = list;
+    while(fast != NULL && fast->next != NULL){
+        slow = slow->next;
+        fast = fast->next->next;
+        if(slow == fast){
+            uart_print_str(name);
+            uart_print_str(" CYCLE");
+            uart_print_newline();
+            while(1); // halt
+        }
+    }
+    uart_print_str(name);
+    uart_print_str(" CYCLE CORRECT");
+    uart_print_newline();
+}
 
 void task_delay(uint32_t ticks){
-    pxCurrentTCB->state = BLOCKED;
-    pxCurrentTCB->wake_time = tick_counter+ticks;
-    vPortYieldFromTick();
+    
+    TCB_t *_curr = (TCB_t*)pxCurrentTCB;
+    _curr->state = BLOCKED;
+    _curr->wake_time = tick_counter+ticks;
+    remove_from_list(&top_priority, _curr);
+    insert_to_list(&blocked_list, _curr, _curr->priority);
+    assert_no_cycle(blocked_list, "blockeddelay");
+    assert_no_cycle(top_priority, "topdelay");
+    
+    vPortYield();
 }
 void idle_task(void){
     while(1);
@@ -24,12 +57,13 @@ void idle_task(void){
 static uint8_t idle_stack[STACK_SIZE];
 static TCB_t idle_tcb;
 
-void task_init(void) {
+TCB_t *task_init(void) {
     for(int i = 0; i < MAX_TASKS; i++){
         free_list[i] = 0;
     }
 
-    task_create(&idle_tcb, idle_stack, idle_task);
+    task_create(&idle_tcb, idle_stack, idle_task, 0);
+    return &idle_tcb;
 }
 
 int _get_free_task(void){
@@ -41,18 +75,54 @@ int _get_free_task(void){
     return -1;
 }
 
-void unblock_if_finished(void){
-    for(int i = 0; i < MAX_TASKS; i++){
-        if (free_list[i] != 0 &&
-            task_list[i]->state == BLOCKED &&
-            task_list[i]->wake_time <= tick_counter){
-            task_list[i]->state = READY;
-            task_list[i]->wake_time = 0;
-        }
+
+
+void insert_to_list(TCB_t **list, TCB_t *tcb, int prio) {
+    //assert_no_cycle(top_priority, "top");
+    //assert_no_cycle(blocked_list, "blocked");
+    
+    tcb->next = NULL;
+    TCB_t *_curr = *list;
+    TCB_t *_prev = NULL;
+
+    while (_curr != NULL && _curr->priority >= prio) {
+        _prev = _curr;
+        _curr = _curr->next;
+    }
+
+    tcb->next = _curr;
+
+    if (_prev == NULL) {
+        *list = tcb;
+    } else {
+        _prev->next = tcb;
     }
 }
 
-void task_create(TCB_t *tcb, uint8_t *stack, void (*task_func)(void)) {
+void remove_from_list(TCB_t **list, TCB_t *tcb) {
+    if (*list == NULL || tcb==NULL) return;
+
+    TCB_t *_curr = *list;
+    TCB_t *_prev = NULL;
+    while (_curr != NULL && _curr != tcb) {
+        uart_print_str("stuck here");
+        _prev = _curr;
+        _curr = _curr->next;
+    }
+    
+
+    if (_curr == NULL) return;
+
+    if (_prev == NULL) {
+        *list = _curr->next;
+    } else {
+        _prev->next = _curr->next;
+    }
+    _curr->next = NULL;
+    uart_print_str("END FROM LIST");
+}
+
+void task_create(TCB_t *tcb, uint8_t *stack, void (*task_func)(void), int prio) {
     int i = _get_free_task();
     if (i<0) return;//TODO make halt
     task_list[i] = tcb;
@@ -63,16 +133,48 @@ void task_create(TCB_t *tcb, uint8_t *stack, void (*task_func)(void)) {
     tcb->state = READY;
     tcb->wake_time = 0;
     tcb->pxTopOfStack = pxPortInitialiseStack(top, task_func);
+    tcb->priority = prio;
+    tcb->next=NULL;
+    insert_to_list(&top_priority, tcb, prio);
+    uart_print_str("test");
+    uart_print_hex(i);
+    uart_print_str("test");
+    assert_no_cycle(top_priority, "topcreate");
+    assert_no_cycle(blocked_list, "blockcreate");
+}
+
+void unblock_if_finished(void){
+    TCB_t *_next = blocked_list;
+    while(_next!=NULL){
+        TCB_t *_after = _next->next;
+        if(_next->state==BLOCKED && _next->wake_time<=tick_counter){
+            _next->state = READY;
+            _next->wake_time = 0;
+            remove_from_list(&blocked_list, _next);
+            insert_to_list(&top_priority, _next, _next->priority);
+            assert_no_cycle(top_priority, "topunblock");
+        }
+        _next = _after;
+    }
+    uart_print_hex(tick_counter);
+    uart_print_hex(_next->wake_time);
 }
 
 
 void task_switch_context(void){
-     while(1){
-        current_index = (current_index+1) % MAX_TASKS;
-        
-        if (free_list[current_index] != 0 && task_list[current_index]->state==READY) {
-            break;
-        }
+    assert_no_cycle(top_priority, "topswitchpre");
+    uart_print_str("preswitchcorrect");
+    if (top_priority == NULL) return;
+        //current_index = (current_index+1) % MAX_TASKS;
+    TCB_t *_curr = top_priority;
+    top_priority = _curr->next;
+
+
+    if((TCB_t *)pxCurrentTCB != _curr && pxCurrentTCB->state == READY){
+        ((TCB_t *)pxCurrentTCB)->next = NULL;
+        insert_to_list(&top_priority, (TCB_t *)pxCurrentTCB, pxCurrentTCB->priority);
+        assert_no_cycle(top_priority, "topswitch");
     }
-    pxCurrentTCB = task_list[current_index];
+    _curr->next = NULL;
+    pxCurrentTCB = _curr;
 }

@@ -13,10 +13,12 @@ typedef enum{
     BLOCKED
 } State_t;
 
-typedef struct {
+typedef struct TCB_t {
     uint8_t *pxTopOfStack;
     State_t state;
     uint32_t wake_time;
+    uint8_t priority;
+    struct TCB_t *next;
 } TCB_t;
 
 void vPortYieldFromTick(void) __attribute__ ((naked));
@@ -116,4 +118,5 @@ volatile extern TCB_t *pxCurrentTCB;
 
 void prvSetupTimerInterrupt(void);
 uint8_t *pxPortInitialiseStack(uint8_t *pxTopOfStack, void (*pxCode)(void));
+void vPortYield(void)__attribute__((naked));;
 #endif
