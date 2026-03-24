@@ -27,15 +27,9 @@ void assert_no_cycle(TCB_t *list, const char *name){
         slow = slow->next;
         fast = fast->next->next;
         if(slow == fast){
-            uart_print_str(name);
-            uart_print_str(" CYCLE");
-            uart_print_newline();
             while(1); // halt
         }
     }
-    uart_print_str(name);
-    uart_print_str(" CYCLE CORRECT");
-    uart_print_newline();
 }
 
 void task_delay(uint32_t ticks){
@@ -105,7 +99,6 @@ void remove_from_list(TCB_t **list, TCB_t *tcb) {
     TCB_t *_curr = *list;
     TCB_t *_prev = NULL;
     while (_curr != NULL && _curr != tcb) {
-        uart_print_str("stuck here");
         _prev = _curr;
         _curr = _curr->next;
     }
@@ -119,7 +112,6 @@ void remove_from_list(TCB_t **list, TCB_t *tcb) {
         _prev->next = _curr->next;
     }
     _curr->next = NULL;
-    uart_print_str("END FROM LIST");
 }
 
 void task_create(TCB_t *tcb, uint8_t *stack, void (*task_func)(void), int prio) {
@@ -136,11 +128,6 @@ void task_create(TCB_t *tcb, uint8_t *stack, void (*task_func)(void), int prio) 
     tcb->priority = prio;
     tcb->next=NULL;
     insert_to_list(&top_priority, tcb, prio);
-    uart_print_str("test");
-    uart_print_hex(i);
-    uart_print_str("test");
-    assert_no_cycle(top_priority, "topcreate");
-    assert_no_cycle(blocked_list, "blockcreate");
 }
 
 void unblock_if_finished(void){
@@ -156,14 +143,11 @@ void unblock_if_finished(void){
         }
         _next = _after;
     }
-    uart_print_hex(tick_counter);
-    uart_print_hex(_next->wake_time);
 }
 
 
 void task_switch_context(void){
     assert_no_cycle(top_priority, "topswitchpre");
-    uart_print_str("preswitchcorrect");
     if (top_priority == NULL) return;
         //current_index = (current_index+1) % MAX_TASKS;
     TCB_t *_curr = top_priority;

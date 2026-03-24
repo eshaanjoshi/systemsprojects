@@ -108,9 +108,7 @@ ISR(TIMER1_COMPA_vect, ISR_NAKED){
 
 void vPortYieldFromTick(void){
     portSAVE_CONTEXT();
-    //vTaskIncrementTick();
     tick_counter++;
-    //uart_print_hex(tick_counter);
     unblock_if_finished();
     task_switch_context();
     portRESTORE_CONTEXT();
