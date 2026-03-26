@@ -4,7 +4,10 @@
 #include "scheduler.h"
 #include <avr/interrupt.h>
 #include <util/delay.h>
+#include "mutex.h"
 
+
+static Mutex_t test_mutex;
 static uint8_t task0_stack[STACK_SIZE];
 static uint8_t task1_stack[STACK_SIZE];
 
@@ -14,23 +17,30 @@ uint8_t restarts = 0;
 
 void task0(void) {
     while (1) {
+        mutex_lock(&test_mutex, NEVER);
         PORTB |= (1<<PB0);
         uart_print_str("here1\n");
-        task_delay(8);
+        
+        task_delay(10);
+        
         PORTB &= ~(1<<PB0);
         uart_print_str("here2\n");
-        task_delay(8);
+        task_delay(10);
+        mutex_unlock(&test_mutex);
     }
 }
 
 void task1(void) {
     while (1) {
+        mutex_lock(&test_mutex, NEVER);
         PORTB |= (1<<PB1);
-         uart_print_str("here3\n");
+        uart_print_str("here3\n");
+        
         task_delay(4);
         PORTB &= ~(1<<PB1);
         uart_print_str("here4\n");
         task_delay(4);
+        mutex_unlock(&test_mutex);
     }
 }
 
@@ -45,7 +55,7 @@ int main(void) {
     PORTB &= ~((1 << PB0) | (1 << PB1));
     TCB_t *init_task_tcb = task_init();
     uart_init();
-
+    mutex_init(&test_mutex);
     task_create(&task0_tcb, task0_stack, task0, 1);
     task_create(&task1_tcb, task1_stack, task1, 2);
 

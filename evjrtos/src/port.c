@@ -2,7 +2,7 @@
 #include <avr/interrupt.h>
 #include "scheduler.h"
 #include "uart.h"
-
+#include "mutex.h"
 //void TIMER1_COMPA_vect(void) __attribute__((signal, naked));
 
 
@@ -110,6 +110,7 @@ void vPortYieldFromTick(void){
     portSAVE_CONTEXT();
     tick_counter++;
     unblock_if_finished();
+    mutex_check_timeouts();
     task_switch_context();
     portRESTORE_CONTEXT();
     asm volatile("ret");

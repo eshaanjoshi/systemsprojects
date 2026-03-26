@@ -9,8 +9,11 @@
 #define portFLAGS_INT_ENABLED ( 0x80 )
 
 typedef enum{
-    READY,
-    BLOCKED
+    RUNNING,
+    READY, //when woke up by ISR in mutex lock, returns failures.
+    BLOCKED,
+    BLOCKED_MUTEX, // task blocked by mutex
+    READY_MUTEX, //means task was woken up by mutex
 } State_t;
 
 typedef struct TCB_t {

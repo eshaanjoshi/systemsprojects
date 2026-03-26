@@ -4,9 +4,6 @@
 #include <avr/interrupt.h>
 #define NULL 0x0
 
-volatile TCB_t *task_list[MAX_TASKS];
-uint8_t task_count = 0;
-volatile uint8_t free_list[MAX_TASKS];
 volatile uint8_t current_index = 0;
 volatile TCB_t *pxCurrentTCB;
 
@@ -52,21 +49,9 @@ static uint8_t idle_stack[STACK_SIZE];
 static TCB_t idle_tcb;
 
 TCB_t *task_init(void) {
-    for(int i = 0; i < MAX_TASKS; i++){
-        free_list[i] = 0;
-    }
 
     task_create(&idle_tcb, idle_stack, idle_task, 0);
     return &idle_tcb;
-}
-
-int _get_free_task(void){
-    for(int i = 0; i < MAX_TASKS; i++){
-        if (free_list[i] == 0){
-            return i;
-        }
-    }
-    return -1;
 }
 
 
@@ -93,6 +78,11 @@ void insert_to_list(TCB_t **list, TCB_t *tcb, int prio) {
     }
 }
 
+void insert_to_ready(TCB_t *ready){
+    insert_to_list(&top_priority, ready, ready->priority);
+}
+
+
 void remove_from_list(TCB_t **list, TCB_t *tcb) {
     if (*list == NULL || tcb==NULL) return;
 
@@ -115,11 +105,8 @@ void remove_from_list(TCB_t **list, TCB_t *tcb) {
 }
 
 void task_create(TCB_t *tcb, uint8_t *stack, void (*task_func)(void), int prio) {
-    int i = _get_free_task();
-    if (i<0) return;//TODO make halt
-    task_list[i] = tcb;
-    free_list[i] = 1;
-    task_count++;
+
+    
 
     uint8_t *top = stack+STACK_SIZE-1;
     tcb->state = READY;
@@ -147,18 +134,20 @@ void unblock_if_finished(void){
 
 
 void task_switch_context(void){
-    assert_no_cycle(top_priority, "topswitchpre");
+    //assert_no_cycle(top_priority, "topswitchpre");
     if (top_priority == NULL) return;
         //current_index = (current_index+1) % MAX_TASKS;
     TCB_t *_curr = top_priority;
     top_priority = _curr->next;
 
 
-    if((TCB_t *)pxCurrentTCB != _curr && pxCurrentTCB->state == READY){
+    if((TCB_t *)pxCurrentTCB != _curr && pxCurrentTCB->state == RUNNING){
         ((TCB_t *)pxCurrentTCB)->next = NULL;
+        pxCurrentTCB->state = READY;
         insert_to_list(&top_priority, (TCB_t *)pxCurrentTCB, pxCurrentTCB->priority);
         assert_no_cycle(top_priority, "topswitch");
     }
     _curr->next = NULL;
     pxCurrentTCB = _curr;
+    pxCurrentTCB->state=RUNNING;
 }
