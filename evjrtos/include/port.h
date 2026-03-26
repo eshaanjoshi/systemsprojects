@@ -21,6 +21,7 @@ typedef struct TCB_t {
     State_t state;
     uint32_t wake_time;
     uint8_t priority;
+    uint8_t old_prio;
     struct TCB_t *next;
 } TCB_t;
 

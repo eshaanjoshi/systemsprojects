@@ -65,6 +65,13 @@ int mutex_lock(Mutex_t *m, uint32_t timeout){
     else{
         pxCurrentTCB->wake_time = tick_counter+timeout;
         pxCurrentTCB->state=BLOCKED_MUTEX;
+        if(pxCurrentTCB->priority > m->owner->priority) {
+            if(m->owner->old_prio == 0) {  // Only save once
+                m->owner->old_prio = m->owner->priority;
+            }
+            m->owner->priority = pxCurrentTCB->priority;
+        }
+
         remove_from_list(get_top_priority(), (TCB_t*)pxCurrentTCB);
         insert_to_list(&(m->blocked_list), (TCB_t*)pxCurrentTCB, pxCurrentTCB->priority);
         sei();
@@ -89,6 +96,10 @@ int mutex_unlock(Mutex_t *m){
         sei();
         return -1;
     }
+    if(m->owner->old_prio!=0){
+        m->owner->priority = m->owner->old_prio;
+        m->owner->old_prio = 0;
+    }
     if(_curr==NULL){
         m->owner=NULL;
         sei();
@@ -99,7 +110,7 @@ int mutex_unlock(Mutex_t *m){
         
         _curr->state=READY_MUTEX;
         insert_to_ready(_curr);
-        m->owner = _curr;
+        m->owner = NULL;
         sei();
         return 1;
     }
